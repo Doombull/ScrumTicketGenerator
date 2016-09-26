@@ -33,30 +33,40 @@ namespace ScrumTicketGenerator
 					if (String.IsNullOrEmpty(ticket))
 						break;
 
+					var storyId = ticket.Trim().ToUpper();
+
 					if (firstLine)
 						firstLine = false;
 					else
 						progress.Report("\n");
 
 					cancel.ThrowIfCancellationRequested();
-					progress.Report(String.Format("[{0}] Processing story... ", ticket));
-					var story = ProcessStory(ticket);
+					progress.Report(String.Format("[{0}] Processing story... ", storyId));
+					var story = ProcessStory(storyId);
 
 					cancel.ThrowIfCancellationRequested();
 					progress.Report("Processing epic... ");
 					var epic = ProcessEpic(story.EpicId, epics);
 
 					cancel.ThrowIfCancellationRequested();
-					progress.Report(String.Format("Processing sub tasks... ", ticket));
+					progress.Report("Processing sub tasks... ");
 					var subTasks = ProcessSubTasks(story.SubTaskIds);
 
 					//Write this story to the output
 					string taskHtml = "";
 
 					foreach (var subTask in subTasks)
-						taskHtml += String.Format(String.Copy(taskTemplate), subTask.Name, subTask.SubTaskType);
+						taskHtml += String.Format(String.Copy(taskTemplate), subTask.Id, subTask.Name, subTask.SubTaskType, subTask.Estimate);
 
-					output += String.Format(String.Copy(storyTemplate), story.Name, epic.Counter, epic.Name, taskHtml);
+					output += String.Format(String.Copy(storyTemplate), 
+						story.Id,
+						story.Name,
+						story.LeadBa,
+						story.LeadTester,
+						story.Estimate,
+						epic.Color, 
+						epic.Name, 
+						taskHtml);
 
 					progress.Report("Done.");
 				}
@@ -72,27 +82,42 @@ namespace ScrumTicketGenerator
 			}
 
 			//Save the generated HTML
-			var outputPath = ConfigurationSettings.AppSettings["outputPath"];
-			if (String.IsNullOrEmpty(outputPath))
-				outputPath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
-
-			var fileName = Path.Combine(outputPath, String.Format("tickets_{0}.html", DateTime.Now.ToString("yyyyMMddHHmmss")));
-			using (StreamWriter writer = new StreamWriter(fileName))
+			if (!String.IsNullOrEmpty(output))
 			{
-				writer.WriteLine(String.Format(mainTemplate, output));
-			}
+				string fileName = null;
 
-			progress.Report("\n\nAll tickets generated.");
+				try
+				{
+					var outputPath = ConfigurationSettings.AppSettings["outputPath"];
+					if (String.IsNullOrEmpty(outputPath))
+						outputPath = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
 
-			//Open the new HTML file in a browser
-			try
-			{
-				ProcessStartInfo startInfo = new ProcessStartInfo(ConfigurationSettings.AppSettings["defaultBrowser"], fileName);
-				Process.Start(startInfo);
-			}
-			catch (Exception ex)
-			{
-				progress.Report(String.Format("\n\nError opening browser: {0}\n{1}\n", ex.Message, ex.StackTrace));
+					fileName = Path.Combine(outputPath, String.Format("tickets_{0}.html", DateTime.Now.ToString("yyyyMMddHHmmss")));
+					using (StreamWriter writer = new StreamWriter(fileName))
+					{
+						writer.WriteLine(String.Format(mainTemplate, output));
+					}
+
+					progress.Report("\n\nAll tickets generated.");
+				}
+				catch (Exception ex)
+				{
+					progress.Report(String.Format("\n\nError writing file: {0}\n{1}\n", ex.Message, ex.StackTrace));
+				}
+
+				//Open the new HTML file in a browser
+				try
+				{
+					if (!String.IsNullOrEmpty(fileName))
+					{
+						ProcessStartInfo startInfo = new ProcessStartInfo(fileName);
+						Process.Start(startInfo);
+					}
+				}
+				catch (Exception ex)
+				{
+					progress.Report(String.Format("\n\nError opening browser: {0}\n{1}\n", ex.Message, ex.StackTrace));
+				}
 			}
 		}
 
@@ -102,11 +127,14 @@ namespace ScrumTicketGenerator
 
 			var story = new Story();
 			story.Id = id;
-			story.Name = doc.SelectSingleNode("/Task/Name").InnerText;
-			story.EpicId = doc.SelectSingleNode("/Task/Epic").InnerText;
+			story.Name = GetFeedValue(doc, "/rss/channel/item/summary");
+			story.LeadBa = GetFeedValue(doc, "/rss/channel/item/customfields/customfield[@id='customfield_16841']/customfieldvalues/customfieldvalue");
+			story.LeadTester = GetFeedValue(doc, "/rss/channel/item/customfields/customfield[@id='customfield_16745']/customfieldvalues/customfieldvalue");
+			story.Estimate = GetFeedValue(doc, "/rss/channel/item/aggregatetimeremainingestimate");
+			story.EpicId = GetFeedValue(doc, "/rss/channel/item/customfields/customfield[@id='customfield_13544']/customfieldvalues/customfieldvalue");
 
 			story.SubTaskIds = new List<string>();
-			var tasks = doc.SelectNodes("/Task/SubTasks/Id");
+			var tasks = doc.SelectNodes("/rss/channel/item/subtasks/subtask");
 
 			foreach (XmlNode task in tasks)
 			{
@@ -123,9 +151,11 @@ namespace ScrumTicketGenerator
 			if (epic == null)
 			{
 				var doc = GetTaskInfo(id);
-				var epicName = doc.SelectSingleNode("/Task/Name").InnerText;
 
-				epic = new Epic() { Id = id, Name = epicName };
+				epic = new Epic();
+				epic.Name = GetFeedValue(doc, "/rss/channel/item/summary");
+				epic.Color = GetFeedValue(doc, "/rss/channel/item/customfields/customfield[@id='customfield_13547']/customfieldvalues/customfieldvalue");
+
 				epics.Add(epic);
 			}
 
@@ -142,9 +172,9 @@ namespace ScrumTicketGenerator
 
 				var subTask = new SubTask();
 				subTask.Id = id;
-				subTask.Name = doc.SelectSingleNode("/Task/Name").InnerText;
-				subTask.SubTaskType = doc.SelectSingleNode("/Task/Type").InnerText;
-				subTask.Estimate = doc.SelectSingleNode("/Task/Estimate").InnerText;
+				subTask.Name = GetFeedValue(doc, "/rss/channel/item/summary");
+				subTask.SubTaskType = GetFeedValue(doc, "/rss/channel/item/type");
+				subTask.Estimate = GetFeedValue(doc, "/rss/channel/item/timeestimate");
 
 				subTasks.Add(subTask);
 			}
@@ -173,6 +203,22 @@ namespace ScrumTicketGenerator
 		}
 
 		/// <summary>
+		/// Gets the value of a node from the given document, handling missing nodes
+		/// </summary>
+		/// <param name="doc"></param>
+		/// <param name="path"></param>
+		protected string GetFeedValue(XmlDocument doc, string path)
+		{
+			string value = null;
+
+			var node = doc.SelectSingleNode(path);
+			if (node != null)
+				value = node.InnerText;
+
+			return value;
+		}
+
+		/// <summary>
 		/// Loads an included HTML template
 		/// </summary>
 		/// <param name="name"></param>
@@ -193,15 +239,7 @@ namespace ScrumTicketGenerator
 		{
 			public string Id;
 			public string Name;
-			public int Counter;
-
-			private static int counter = 0;
-
-			public Epic()
-			{
-				Counter = counter;
-				counter++;
-			}
+			public string Color;
 		}
 
 		public class Story
@@ -210,6 +248,7 @@ namespace ScrumTicketGenerator
 			public string Name;
 			public string LeadBa;
 			public string LeadTester;
+			public string Estimate;
 
 			public string EpicId;
 			public List<string> SubTaskIds;

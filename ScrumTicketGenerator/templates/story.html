@@ -1,5 +1,29 @@
-<div style="page-break-inside: avoid">
-	<h1>{0}</h1>
-	<h2>{1}: {2}</h2>
-	{3}
+<div class="storyContainer">
+    <h1>[{0}] {1}</h1>
+
+    <div class="storyBody">
+        <table class="details">
+            <tr>
+                <td rowspan="3">
+                    <div class="epicLabel">Epic:</div>
+                </td>
+                <td rowspan="3">
+                    <div class="epicContainer">
+                        <div class="epic {5}">{6}</div>
+                    </div>
+                </td>
+                <td>Lead BA:</td>
+                <td class="right">{2}</td>
+            </tr>
+            <tr>
+                <td>Leader Tester:</td>
+                <td class="right">{3}</td>
+            </tr>
+            <tr>
+                <td>Estimate:</td>
+                <td class="right">{4}</td>
+            </tr>
+        </table>
+        {7}
+    </div>
 </div>

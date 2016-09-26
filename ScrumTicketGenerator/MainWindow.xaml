@@ -35,7 +35,7 @@
 
             <TextBox x:Name="txtTickets" Grid.Column="1" Height="30" Margin="0,30,0,0" MaxLines="1" VerticalContentAlignment="Center"/>
 
-            <Button Grid.Column="1" Grid.Row="1" Style="{StaticResource buttonStyle}" x:Name="btnGenerate" Click="btnGenerate_Click">Generate Tickets</Button>
+            <Button Grid.Column="1" Grid.Row="1" Style="{StaticResource buttonStyle}" x:Name="btnGenerate" Click="btnGenerate_Click" IsDefault="True">Generate Tickets</Button>
             <Button Grid.Column="1" Grid.Row="1" Style="{StaticResource buttonStyle}" Visibility="Hidden" x:Name="btnCancel" Click="btnCancel_Click">Cancel</Button>
 
             <Label Grid.Column="0" Grid.Row="2" Style="{StaticResource labelStyle}" Margin="0,0,10,0" >
