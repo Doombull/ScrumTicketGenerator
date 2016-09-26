@@ -55,8 +55,9 @@ namespace ScrumTicketGenerator
 					//Write this story to the output
 					string taskHtml = "";
 
-					foreach (var subTask in subTasks)
-						taskHtml += String.Format(String.Copy(taskTemplate), subTask.Id, subTask.Name, subTask.SubTaskType, subTask.Estimate);
+					if (subTasks != null && subTasks.Count > 1)
+						foreach (var subTask in subTasks)
+							taskHtml += String.Format(String.Copy(taskTemplate), subTask.Id, subTask.Name, subTask.SubTaskType, subTask.Estimate);
 
 					output += String.Format(String.Copy(storyTemplate), 
 						story.Id,
