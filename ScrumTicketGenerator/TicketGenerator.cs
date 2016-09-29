@@ -147,6 +147,9 @@ namespace ScrumTicketGenerator
 
 		protected Epic ProcessEpic(string id, List<Epic> epics)
 		{
+			if (String.IsNullOrEmpty(id))
+				return new Epic() { Name = "No Epic" };
+
 			var epic = epics.Where(x => x.Id == id).FirstOrDefault();
 
 			if (epic == null)
