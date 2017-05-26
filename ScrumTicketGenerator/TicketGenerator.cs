@@ -16,8 +16,21 @@ namespace ScrumTicketGenerator
 {
 	public class TicketGenerator
 	{
-		public void Generate(string[] tickets, IProgress<string> progress, CancellationToken cancel)
+		public string Username
 		{
+			get; set;
+		}
+
+		public string Password
+		{
+			get; set;
+		}
+
+		public void Generate(string[] tickets, string username, string password, IProgress<string> progress, CancellationToken cancel)
+		{
+			Username = username;
+			Password = password;
+
 			bool firstLine = true;
 			var epics = new List<Epic>();
 
@@ -79,6 +92,13 @@ namespace ScrumTicketGenerator
 				catch (Exception ex)
 				{
 					progress.Report(String.Format("\n\nError: {0}\n{1}\n", ex.Message, ex.StackTrace));
+
+					if (ex is WebException)
+					{
+						HttpStatusCode response = ((HttpWebResponse)((WebException)ex).Response).StatusCode;
+						if (response == HttpStatusCode.Unauthorized || response == HttpStatusCode.Forbidden)
+							break;
+					}
 				}
 			}
 
@@ -124,7 +144,7 @@ namespace ScrumTicketGenerator
 
 		protected Story ProcessStory(string id)
 		{
-			var doc = GetTaskInfo(id);
+			var doc = GetIssueInfo(id);
 
 			var story = new Story();
 			story.Id = id;
@@ -154,7 +174,7 @@ namespace ScrumTicketGenerator
 
 			if (epic == null)
 			{
-				var doc = GetTaskInfo(id);
+				var doc = GetIssueInfo(id);
 
 				epic = new Epic();
 				epic.Name = GetFeedValue(doc, "/rss/channel/item/summary");
@@ -172,7 +192,7 @@ namespace ScrumTicketGenerator
 
 			foreach (var id in ids)
 			{
-				var doc = GetTaskInfo(id);
+				var doc = GetIssueInfo(id);
 
 				var subTask = new SubTask();
 				subTask.Id = id;
@@ -191,10 +211,10 @@ namespace ScrumTicketGenerator
 		/// </summary>
 		/// <param name="ticket">The unique identifier of the JIRA task</param>
 		/// <returns></returns>
-		protected XmlDocument GetTaskInfo(string ticket)
+		protected XmlDocument GetIssueInfo(string ticket)
 		{
 			var storyUrl = String.Format(ConfigurationSettings.AppSettings["taskUrl"], ticket);
-			string authInfo = String.Format("{0}:{1}", ConfigurationSettings.AppSettings["username"], ConfigurationSettings.AppSettings["password"]);
+			string authInfo = String.Format("{0}:{1}", Username, Password);
 
 			var request = WebRequest.Create(storyUrl);
 			authInfo = Convert.ToBase64String(Encoding.GetEncoding("ISO-8859-1").GetBytes(authInfo));

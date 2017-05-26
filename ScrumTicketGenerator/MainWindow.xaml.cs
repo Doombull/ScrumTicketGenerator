@@ -30,18 +30,38 @@ namespace ScrumTicketGenerator
 
 		private async void btnGenerate_Click(object sender, RoutedEventArgs e)
 		{
-			btnGenerate.Visibility = Visibility.Hidden;
-			btnCancel.Visibility = Visibility.Visible;
+			if (String.IsNullOrEmpty(txtUsername.Text))
+			{
+				ShowError("Please enter a Username", "No Username");
+				return;
+			};
+
+			if (String.IsNullOrEmpty(txtPassword.Password))
+			{
+				ShowError("Please enter a Password", "No Password");
+				return;
+			};
+
+			if (String.IsNullOrEmpty(txtTickets.Text))
+			{
+				ShowError("Please enter at least one JIRA ticket number", "No Ticket");
+				return;
+			};
 
 			txtStatus.Text = "";
 			var tickets = txtTickets.Text.Split(',');
+			var username = txtUsername.Text;
+			var password = txtPassword.Password;
+
+			btnGenerate.Visibility = Visibility.Hidden;
+			btnCancel.Visibility = Visibility.Visible;
 			
 			var progressIndicator = new Progress<string>(ReportProgress);
 
 			cancelSource = new CancellationTokenSource();
 
 			var generator = new TicketGenerator();
-			await Task.Run(() => generator.Generate(tickets, progressIndicator, cancelSource.Token));
+			await Task.Run(() => generator.Generate(tickets, username, password, progressIndicator, cancelSource.Token));
 
 			btnGenerate.Visibility = Visibility.Visible;
 			btnCancel.Visibility = Visibility.Hidden;
@@ -59,6 +79,11 @@ namespace ScrumTicketGenerator
 		{
 			txtStatus.AppendText(value);
 			txtStatus.ScrollToEnd();
+		}
+
+		void ShowError(string message, string caption)
+		{
+			MessageBox.Show(message, caption, MessageBoxButton.OK, MessageBoxImage.Error);
 		}
 	}
 }
