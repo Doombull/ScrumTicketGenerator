@@ -76,8 +76,11 @@ namespace ScrumTicketGenerator
 						story.Id,
 						story.Name,
 						story.LeadBa,
+						String.IsNullOrEmpty(story.LeadBa) ? "hide" : "",
 						story.LeadTester,
+						String.IsNullOrEmpty(story.LeadTester) ? "hide" : "",
 						story.Estimate,
+						String.IsNullOrEmpty(story.Estimate) ? "hide" : "",
 						epic.Color, 
 						epic.Name, 
 						taskHtml);
